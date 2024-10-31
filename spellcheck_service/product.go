@@ -2,10 +2,11 @@ package spellcheck_service
 
 import (
 	"encoding/json"
-	. "errors"
+	."errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -15,6 +16,7 @@ type Product struct {
 	Name string `json:"name"`
 }
 
+// ProductError представляет структуру ошибки для продуктов.
 type ProductError struct {
 	ProductID int    `json:"product_id"`
 	Name      string `json:"name"`
@@ -30,7 +32,14 @@ func GetProducts() ([]Product, error) {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzA2NDg2MDMsImlhdCI6MTczMDA0MzgwMywianRpIjo2MjM4MDU0LCJuYmYiOjE3MzAwNDM4MDN9.RS5UrJbHB9gbTU4P5PiFEZ6NcdXTAqnlHJrFUxbHR-o")
+	// Получаем токен из переменной окружения
+	apiToken := os.Getenv("API_TOKEN")
+	if apiToken == "" {
+		return nil, errors.New("токен API не установлен. Установите API_TOKEN в переменных окружения")
+	}
+
+	// Устанавливаем заголовки запроса
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiToken))
 	req.Header.Set("accept", "application/json")
 
 	resp, err := client.Do(req)
@@ -42,7 +51,7 @@ func GetProducts() ([]Product, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Не удалось получить продукты. Статус-код:", resp.StatusCode)
-		return nil, New("failed to fetch products")
+		return nil, errors.New("failed to fetch products")
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -50,8 +59,6 @@ func GetProducts() ([]Product, error) {
 		fmt.Println("Ошибка при чтении тела ответа:", err)
 		return nil, err
 	}
-
-	//fmt.Println("Ответ от API:", string(body)) // Отладочное сообщение для проверки ответа
 
 	var products []Product
 	if err := json.Unmarshal(body, &products); err != nil {
